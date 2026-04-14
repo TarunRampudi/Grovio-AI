@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import axios from "axios";
 
-const API_URL = "http://localhost:5000/notes";
+const API_URL = "https://grovio-ai-u49q.onrender.com";
 
 let timer; // for debounce
 
