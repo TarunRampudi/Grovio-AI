@@ -1,72 +1,82 @@
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
-const sqlite3 = require("sqlite3").verbose();
+const Database = require("better-sqlite3");
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors({
-  origin: "*"
-}));
+app.use(cors({ origin: "*" }));
 app.use(bodyParser.json());
 
 // Database
-const db = new sqlite3.Database("./notes.db", (err) => {
-  if (err) console.error(err.message);
-  else console.log("Connected to SQLite DB");
-});
+const db = new Database("notes.db");
+console.log("Connected to SQLite DB");
 
 // Create table
-db.run(`
+db.prepare(`
   CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     content TEXT
   )
-`);
+`).run();
 
 // Routes
 
-// Get all notes
+// GET all notes
 app.get("/notes", (req, res) => {
-  db.all("SELECT * FROM notes", [], (err, rows) => {
-    if (err) return res.status(500).json(err);
+  try {
+    const rows = db.prepare("SELECT * FROM notes").all();
     res.json(rows);
-  });
+  } catch (err) {
+    res.status(500).json(err);
+  }
 });
 
-// Create note
+// CREATE note
 app.post("/notes", (req, res) => {
-  const { content } = req.body;
-  db.run("INSERT INTO notes (content) VALUES (?)", [content], function (err) {
-    if (err) return res.status(500).json(err);
-    res.json({ id: this.lastID });
-  });
+  try {
+    const { content } = req.body;
+    const result = db
+      .prepare("INSERT INTO notes (content) VALUES (?)")
+      .run(content);
+
+    res.json({ id: result.lastInsertRowid });
+  } catch (err) {
+    res.status(500).json(err);
+  }
 });
 
-// Update note
+// UPDATE note
 app.put("/notes/:id", (req, res) => {
-  const { content } = req.body;
-  db.run(
-    "UPDATE notes SET content = ? WHERE id = ?",
-    [content, req.params.id],
-    function (err) {
-      if (err) return res.status(500).json(err);
-      res.json({ updated: this.changes });
-    }
-  );
+  try {
+    const { content } = req.body;
+
+    const result = db
+      .prepare("UPDATE notes SET content = ? WHERE id = ?")
+      .run(content, req.params.id);
+
+    res.json({ updated: result.changes });
+  } catch (err) {
+    res.status(500).json(err);
+  }
 });
 
-// Delete note
+// DELETE note
 app.delete("/notes/:id", (req, res) => {
-  db.run("DELETE FROM notes WHERE id = ?", [req.params.id], function (err) {
-    if (err) return res.status(500).json(err);
-    res.json({ deleted: this.changes });
-  });
+  try {
+    const result = db
+      .prepare("DELETE FROM notes WHERE id = ?")
+      .run(req.params.id);
+
+    res.json({ deleted: result.changes });
+  } catch (err) {
+    res.status(500).json(err);
+  }
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
